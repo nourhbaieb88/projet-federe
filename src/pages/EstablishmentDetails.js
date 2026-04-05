@@ -1,10 +1,14 @@
 import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "../components/Button";
 import Input from "../components/Input";
+import { establishmentService } from "../services/api";
 
 function EstablishmentDetails() {
   const { id } = useParams();
+  const [establishment, setEstablishment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -20,29 +24,62 @@ function EstablishmentDetails() {
   });
   const [newComment, setNewComment] = useState("");
   const [userRating, setUserRating] = useState(0);
-  const [comments, setComments] = useState([
-    {
-      id: 1,
-      user: "Ahmed Ben Ali",
-      rating: 5,
-      comment: "Excellent restaurant ! La nourriture est délicieuse et le service impeccable. Je recommande vivement.",
-      date: "2026-04-01"
-    },
-    {
-      id: 2,
-      user: "Fatma Trabelsi",
-      rating: 4,
-      comment: "Très bon restaurant, ambiance agréable. Les prix sont raisonnables pour la qualité.",
-      date: "2026-03-28"
-    },
-    {
-      id: 3,
-      user: "Mohamed Salah",
-      rating: 5,
-      comment: "Une expérience culinaire exceptionnelle ! Le couscous était parfait et le service attentionné.",
-      date: "2026-03-25"
-    }
-  ]);
+  const [reservationSent, setReservationSent] = useState(false);
+  const [reservationInfo, setReservationInfo] = useState({ date: "", time: "", guests: 1 });
+  const [comments, setComments] = useState([]);
+
+  // Fetch establishment data from API
+  useEffect(() => {
+    const fetchEstablishment = async () => {
+      try {
+        setLoading(true);
+        const data = await establishmentService.getById(id);
+        setEstablishment(data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching establishment:", err);
+        // Fallback: use hardcoded data if API fails
+        const fallbackEstablishments = [
+          {
+            id: 1,
+            title: "Restaurant Le Jardin",
+            category: "Restaurants",
+            location: "Tunis",
+            rating: 4.5,
+            address: "123 Rue de la Liberté, Tunis",
+            phone: "+216 71 123 456",
+            email: "contact@lejardin.tn",
+            lat: 36.8065,
+            lng: 10.1815,
+            priceRange: "€€ - Moyen",
+            capacity: 80,
+            description: "Restaurant traditionnel tunisien avec vue sur la mer. Spécialités : couscous, tajine, pastilla. Ambiance conviviale avec musique traditionnelle.",
+            openingHours: {
+              monday: { open: "12:00", close: "23:00", closed: false },
+              tuesday: { open: "12:00", close: "23:00", closed: false },
+              wednesday: { open: "12:00", close: "23:00", closed: false },
+              thursday: { open: "12:00", close: "23:00", closed: false },
+              friday: { open: "12:00", close: "23:00", closed: false },
+              saturday: { open: "12:00", close: "23:00", closed: false },
+              sunday: { open: "12:00", close: "23:00", closed: false }
+            },
+            images: [
+              "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",
+              "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600"
+            ],
+            features: ["Climatisation", "WiFi gratuit", "Parking", "Terrasse"]
+          }
+        ];
+        const fallback = fallbackEstablishments.find(est => est.id === parseInt(id));
+        setEstablishment(fallback);
+        setError(fallback ? null : "Établissement non trouvé");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEstablishment();
+  }, [id]);
 
   const handleReservationChange = (e) => {
     const { name, value } = e.target;
@@ -58,9 +95,17 @@ function EstablishmentDetails() {
       return;
     }
 
-    alert(`Demande de réservation envoyée à "${establishment.title}" pour le ${reservationData.date} à ${reservationData.time} pour ${reservationData.guests} personne(s). L'établissement devra confirmer votre demande.`);
+    // Sauvegarder les données pour la bannière
+    setReservationInfo({
+      date: reservationData.date,
+      time: reservationData.time,
+      guests: reservationData.guests
+    });
 
-    // Réinitialiser le formulaire
+    // Afficher la bannière de succès
+    setReservationSent(true);
+
+    // Réinitialiser le formulaire immédiatement
     setReservationData({
       date: "",
       time: "",
@@ -68,6 +113,11 @@ function EstablishmentDetails() {
       specialRequests: ""
     });
     setShowReservationForm(false);
+
+    // Cacher la bannière après 5 secondes
+    setTimeout(() => {
+      setReservationSent(false);
+    }, 5000);
   };
 
   const handleMessageChange = (e) => {
@@ -114,77 +164,16 @@ function EstablishmentDetails() {
     alert("Commentaire ajouté avec succès !");
   };
 
-  // Simulation des données détaillées (en réalité, récupérer depuis une API)
-  const establishments = [
-    {
-      id: 1,
-      title: "Restaurant Le Jardin",
-      category: "Restaurants",
-      location: "Tunis",
-      rating: 4.5,
-      icon: "🍽️",
-      lat: 36.8065,
-      lng: 10.1815,
-      address: "123 Rue de la Liberté, Tunis",
-      phone: "+216 71 123 456",
-      email: "contact@lejardin.tn",
-      priceRange: "€€ - Moyen",
-      capacity: 80,
-      description: "Restaurant traditionnel tunisien avec vue sur la mer. Spécialités : couscous, tajine, pastilla. Ambiance conviviale avec musique traditionnelle.",
-      openingHours: {
-        monday: { open: "12:00", close: "23:00", closed: false },
-        tuesday: { open: "12:00", close: "23:00", closed: false },
-        wednesday: { open: "12:00", close: "23:00", closed: false },
-        thursday: { open: "12:00", close: "23:00", closed: false },
-        friday: { open: "12:00", close: "23:00", closed: false },
-        saturday: { open: "12:00", close: "23:00", closed: false },
-        sunday: { open: "12:00", close: "23:00", closed: false }
-      },
-      images: [
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600",
-        "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600"
-      ],
-      features: ["Climatisation", "WiFi gratuit", "Parking", "Terrasse", "Accept cartes"]
-    },
-    {
-      id: 2,
-      title: "Café Central",
-      category: "Cafés",
-      location: "Sfax",
-      rating: 4.2,
-      icon: "☕",
-      lat: 34.7398,
-      lng: 10.7600,
-      address: "45 Avenue Habib Bourguiba, Sfax",
-      phone: "+216 74 567 890",
-      email: "info@cafecentral.tn",
-      priceRange: "€ - Budget",
-      capacity: 50,
-      description: "Café traditionnel avec spécialités tunisiennes. Idéal pour un café ou un thé à la menthe. Ambiance authentique.",
-      openingHours: {
-        monday: { open: "08:00", close: "20:00", closed: false },
-        tuesday: { open: "08:00", close: "20:00", closed: false },
-        wednesday: { open: "08:00", close: "20:00", closed: false },
-        thursday: { open: "08:00", close: "20:00", closed: false },
-        friday: { open: "08:00", close: "20:00", closed: false },
-        saturday: { open: "08:00", close: "20:00", closed: false },
-        sunday: { open: "10:00", close: "18:00", closed: false }
-      },
-      images: [
-        "https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=600",
-        "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600"
-      ],
-      features: ["WiFi gratuit", "Terrasse", "Spécialités tunisiennes"]
-    }
-  ];
+  // Loading state
+  if (loading) {
+    return <div className="page_title">Chargement...</div>;
+  }
 
-  const establishment = establishments.find(est => est.id === parseInt(id));
-
-  if (!establishment) {
+  // Error or not found state
+  if (error === "Établissement non trouvé" || !establishment) {
     return (
       <div className="container">
-        <h1 className="page-title">Établissement non trouvé</h1>
+        <h1 className="page_title">Établissement non trouvé</h1>
         <Link to="/services">
           <Button text="Retour aux services" />
         </Link>
@@ -209,6 +198,29 @@ function EstablishmentDetails() {
 
   return (
     <div className="container">
+      {reservationSent && (
+        <div style={{
+          backgroundColor: 'rgba(76, 175, 80, 0.95)',
+          color: '#fff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          marginBottom: '2rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+          animation: 'slideDown 0.3s ease-out'
+        }}>
+          <span style={{fontSize: '1.5rem'}}>✅</span>
+          <div>
+            <h3 style={{margin: '0 0 0.5rem 0', fontSize: '1.1rem'}}>Demande de réservation envoyée!</h3>
+            <p style={{margin: 0}}>
+              Votre réservation pour le {reservationInfo.date} à {reservationInfo.time} a bien été reçue par <strong>{establishment.title}</strong>. 
+              L'établissement confirmera votre demande bientôt.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="establishment-header" style={{marginBottom: '2rem'}}>
         <Link to="/services" style={{color: 'var(--accent-color)', textDecoration: 'none', marginBottom: '1rem', display: 'inline-block'}}>
           ← Retour aux établissements
