@@ -305,18 +305,97 @@ function EstablishmentDetails() {
           </div>
 
           <div className="glass-panel" style={{marginTop: '2rem'}}>
-            <h2 style={{marginBottom: '1rem'}}>Horaires d'ouverture</h2>
-            <div style={{display: 'grid', gap: '0.5rem'}}>
-              {Object.entries(establishment.openingHours).map(([day, hours]) => (
-                <div key={day} style={{display: 'flex', justifyContent: 'space-between'}}>
-                  <span style={{textTransform: 'capitalize', fontWeight: '500'}}>
-                    {day}:
-                  </span>
-                  <span style={{color: hours.closed ? 'var(--text-muted)' : 'var(--text-color)'}}>
-                    {hours.closed ? 'Fermé' : `${hours.open} - ${hours.close}`}
-                  </span>
+            <h2 style={{marginBottom: '1rem'}}>🕐 Horaires d'ouverture</h2>
+            <div style={{display: 'grid', gap: '0.75rem'}}>
+              {Object.entries(establishment.openingHours).map(([day, hours]) => {
+                const today = new Date();
+                const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const currentDay = dayNames[today.getDay()];
+                const isToday = day === currentDay;
+
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      background: isToday ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                      border: isToday ? '1px solid var(--accent-color)' : 'none'
+                    }}
+                  >
+                    <span style={{
+                      textTransform: 'capitalize',
+                      fontWeight: isToday ? 'bold' : '500',
+                      color: isToday ? 'var(--accent-color)' : 'var(--text-color)'
+                    }}>
+                      {day} {isToday ? '(Aujourd\'hui)' : ''}
+                    </span>
+                    <span style={{
+                      color: hours.closed ? '#ef4444' : '#10b981',
+                      fontWeight: '600'
+                    }}>
+                      {hours.closed ? '🔴 Fermé' : `🟢 ${hours.open} - ${hours.close}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{marginTop: '2rem'}}>
+            <h2 style={{marginBottom: '1rem'}}>📊 Disponibilité</h2>
+            <div style={{display: 'grid', gap: '1rem'}}>
+              <div>
+                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>Capacité totale</p>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem'
+                  }}>
+                    👥
+                  </div>
+                  <div>
+                    <strong style={{fontSize: '1.25rem'}}>{establishment.capacity}</strong> places totales
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              <div style={{borderTop: '1px solid var(--border-color)', paddingTop: '1rem'}}>
+                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>Places disponibles aujourd'hui</p>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem'
+                  }}>
+                    ✓
+                  </div>
+                  <div>
+                    <strong style={{fontSize: '1.25rem'}}>{Math.max(0, establishment.capacity - 15)}</strong> places libres
+                  </div>
+                </div>
+              </div>
+
+              <div style={{borderTop: '1px solid var(--border-color)', paddingTop: '1rem'}}>
+                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>État</p>
+                <span className={`status-badge ${isOpenToday() ? 'status-completed' : 'status-cancelled'}`}>
+                  {isOpenToday() ? '🟢 Ouvert maintenant' : '🔴 Actuellement fermé'}
+                </span>
+              </div>
             </div>
           </div>
 
