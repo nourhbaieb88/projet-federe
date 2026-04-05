@@ -193,8 +193,10 @@ function EstablishmentDetails() {
   }
 
   const isOpenToday = () => {
-    const today = new Date().toLocaleLowerCase('en', { weekday: 'long' });
-    const hours = establishment.openingHours[today];
+    const today = new Date();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDay = dayNames[today.getDay()];
+    const hours = establishment.openingHours[currentDay];
     if (!hours || hours.closed) return false;
 
     const now = new Date();
