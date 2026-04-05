@@ -15,8 +15,6 @@ function Navbar() {
 
       <div className="nav-auth">
         <Link to="/login" className="nav-link">Connexion</Link>
-        <Link to="/register" className="nav-link">Client</Link>
-        <Link to="/establishment-register" className="nav-link">Établissement</Link>
       </div>
     </nav>
   );
