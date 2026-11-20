@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*/__pycache__/
+*/migrations/__pycache__/
+db.sqlite3
+media/
+staticfiles/
+out.txt
+err.txt
+check_out.txt
+tmp_users.txt
+check_db.py
+test_api.py
+test_http.py
+*.log
+.pytest_cache/

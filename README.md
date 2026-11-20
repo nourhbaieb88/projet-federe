@@ -1,70 +1,125 @@
-# Getting Started with Create React App
+# CityReserve
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+CityReserve est une plateforme de reservation entre clients et etablissements.
+Le projet est organise en deux parties :
 
-## Available Scripts
+- `src/` : frontend React
+- `backend/` : API Django REST + base SQLite de developpement
 
-In the project directory, you can run:
+## Fonctionnalites
 
-### `npm start`
+- Authentification JWT par email
+- Comptes client et etablissement
+- Catalogue d'etablissements avec carte et filtres
+- Reservation avec validation de capacite et horaires
+- Avis clients
+- Messagerie entre client et etablissement
+- Tableau de bord partenaire pour gerer reservations et services
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Structure
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```text
+frontend/
+|- src/
+|  |- components/
+|  |- context/
+|  |- pages/
+|  \- services/
+|- public/
+\- backend/
+   |- accounts/
+   |- establishments/
+   |- reservations/
+   |- messaging/
+   \- cityreserve_backend/
+```
 
-### `npm test`
+## Demarrage local
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Frontend
 
-### `npm run build`
+```bash
+npm install
+npm start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Application disponible sur `http://localhost:3000`.
+Configurez `REACT_APP_API_URL` dans `.env` ou `.env.demo` avant un deploiement distant.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Backend
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
 
-### `npm run eject`
+API disponible sur `http://localhost:8000/api`.
+L'admin Django reste disponible sur `http://localhost:8000/api/admin/`.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Email de reinitialisation
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Le flux `Mot de passe oublie` envoie un lien de reinitialisation par email.
+Par defaut, Django utilise un backend console en local.
+Pour un vrai envoi, configurez au minimum :
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+FRONTEND_BASE_URL=http://localhost:3000
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+DJANGO_EMAIL_HOST=smtp.votre-fournisseur.com
+DJANGO_EMAIL_PORT=587
+DJANGO_EMAIL_HOST_USER=votre-compte
+DJANGO_EMAIL_HOST_PASSWORD=votre-mot-de-passe
+DJANGO_EMAIL_USE_TLS=True
+DJANGO_DEFAULT_FROM_EMAIL=CityReserve <no-reply@votre-domaine.com>
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Commandes utiles
 
-## Learn More
+### Frontend
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm run build
+npm test -- --watchAll=false --runInBand --passWithNoTests
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Backend
 
-### Code Splitting
+```bash
+cd backend
+python manage.py check
+python manage.py test
+python manage.py makemigrations --check
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Endpoints principaux
 
-### Analyzing the Bundle Size
+- `POST /api/accounts/users/`
+- `POST /api/accounts/token/`
+- `GET /api/accounts/users/me/`
+- `PATCH /api/accounts/users/update_profile/`
+- `GET /api/establishments/`
+- `GET /api/establishments/<id>/`
+- `GET /api/establishments/<id>/reviews/`
+- `GET /api/services/`
+- `GET /api/reservations/`
+- `POST /api/reservations/<id>/cancel/`
+- `GET /api/messaging/conversations/`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Etat verifie
 
-### Making a Progressive Web App
+Les verifications suivantes passent dans l'etat actuel du projet :
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+- `python manage.py makemigrations --check`
+- `python manage.py test`
+- `npm run build`
+- `npm test -- --watchAll=false --runInBand --passWithNoTests`
 
-### Advanced Configuration
+## Notes Git
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Les artefacts locaux sont ignores via `.gitignore` et `backend/.gitignore`
+- La base SQLite de developpement et le `venv` backend ne doivent pas etre commits
+- Si vous voulez versionner le backend pour la premiere fois, ajoutez uniquement le code source et les migrations

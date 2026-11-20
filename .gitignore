@@ -13,6 +13,7 @@
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -23,3 +24,24 @@ yarn-debug.log*
 yarn-error.log*
 
 .vercel
+
+# backend
+backend/venv/
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*/migrations/__pycache__/
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+backend/out.txt
+backend/err.txt
+backend/check_out.txt
+backend/tmp_users.txt
+backend/check_db.py
+backend/test_api.py
+backend/test_http.py
+backend/*.log
+backend/.pytest_cache/
+
+# local build artifacts
+/frontend-build

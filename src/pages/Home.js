@@ -1,5 +1,16 @@
 import { Link } from "react-router-dom";
-import { FaUtensils, FaCoffee, FaBook, FaFutbol, FaCut, FaSpa, FaStore } from "react-icons/fa";
+import {
+  FaBook,
+  FaCalendarCheck,
+  FaCoffee,
+  FaCut,
+  FaFutbol,
+  FaMapMarkedAlt,
+  FaPlayCircle,
+  FaSpa,
+  FaStore,
+  FaUtensils,
+} from "react-icons/fa";
 
 function Home() {
   const categories = [
@@ -7,97 +18,123 @@ function Home() {
       id: 1,
       title: "Restaurants",
       icon: <FaUtensils />,
-      desc: "Réservez une table dans vos restaurants préférés.",
+      description: "Tables, menus et reservations de groupe en quelques clics.",
       color: "linear-gradient(135deg, #3b82f6, #7c3aed)",
-      iconBg: "rgba(59, 130, 246, 0.1)"
+      accent: "#60a5fa",
     },
     {
       id: 2,
-      title: "Cafés",
+      title: "Cafes",
       icon: <FaCoffee />,
-      desc: "Détendez-vous dans un café près de chez vous.",
+      description: "Espaces calmes pour rendez-vous, travail et pauses rapides.",
       color: "linear-gradient(135deg, #10b981, #059669)",
-      iconBg: "rgba(16, 185, 129, 0.1)"
+      accent: "#34d399",
     },
     {
       id: 3,
-      title: "Bibliothèques",
+      title: "Bibliotheques",
       icon: <FaBook />,
-      desc: "Accédez aux ressources éducatives.",
-      color: "linear-gradient(135deg, #f59e0b, #d97706)",
-      iconBg: "rgba(245, 158, 11, 0.1)"
+      description: "Places de revision et salles de groupe faciles a reserver.",
+      color: "linear-gradient(135deg, #38bdf8, #2563eb)",
+      accent: "#38bdf8",
     },
     {
       id: 4,
       title: "Terrains de sport",
       icon: <FaFutbol />,
-      desc: "Réservez un terrain pour vos activités sportives.",
-      color: "linear-gradient(135deg, #60a5fa, #93c5fd)",
-      iconBg: "rgba(96, 165, 250, 0.1)"
+      description: "Creneaux sportifs, vestiaires et terrains disponibles.",
+      color: "linear-gradient(135deg, #60a5fa, #0ea5e9)",
+      accent: "#7dd3fc",
     },
     {
       id: 5,
       title: "Centres de coiffure",
       icon: <FaCut />,
-      desc: "Prenez rendez-vous dans un salon de coiffure.",
+      description: "Coupes, brushing et colorations avec horaires visibles.",
       color: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-      iconBg: "rgba(139, 92, 246, 0.1)"
+      accent: "#a78bfa",
     },
     {
       id: 6,
-      title: "Centres esthétiques",
+      title: "Centres esthetiques",
       icon: <FaSpa />,
-      desc: "Réservez vos soins de beauté et bien-être.",
+      description: "Soins, massages et prestations beaute sur rendez-vous.",
       color: "linear-gradient(135deg, #ec4899, #db2777)",
-      iconBg: "rgba(236, 72, 153, 0.1)"
+      accent: "#f472b6",
     },
-    {
-      id: 7,
-      title: "Autres établissements",
-      icon: <FaStore />,
-      desc: "Découvrez d'autres services nécessitant réservation.",
-      color: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-      iconBg: "rgba(37, 99, 235, 0.1)"
-    }
   ];
 
   return (
-    <div className="container">
-      <div className="section-header">
-        <h1 className="section-title">Bienvenue sur CityReserve</h1>
-        <p className="section-subtitle">Réservez en ligne dans vos établissements préférés en Tunisie</p>
-      </div>
-
-      <div style={{textAlign: 'center', marginBottom: '3rem'}}>
-        <Link to="/establishment-register">
-          <button className="btn btn-primary" style={{background: 'linear-gradient(90deg, #8b5cf6, #c084fc)'}}>
-            <FaStore className="icon icon-sm" />
-            Vous êtes un établissement ? Inscrivez-vous ici
-          </button>
-        </Link>
-      </div>
-
-      <div className="grid-container">
-        {categories.map((cat) => (
-          <div key={cat.id} className="card glass-panel">
-            <div
-              className="card-icon icon icon-lg icon-primary"
-              style={{
-                background: cat.color,
-                boxShadow: `0 8px 25px ${cat.iconBg}, 0 4px 12px ${cat.iconBg}80, inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                color: 'white'
-              }}
-            >
-              {cat.icon}
-            </div>
-            <h3 className="card-title">{cat.title}</h3>
-            <p className="card-desc">{cat.desc}</p>
-            <Link to={`/services?category=${encodeURIComponent(cat.title)}`}>
-              <button className="btn btn-primary" style={{marginTop: '1rem'}}>
-                Voir les établissements
-              </button>
+    <div className="container home-page">
+      <section className="home-hero glass-panel">
+        <div className="home-hero-copy">
+          <span className="eyebrow">Plateforme de reservation locale</span>
+          <h1>Reserve vite. Trouve clair. Tout est pret.</h1>
+          <p>
+            CityReserve rassemble des etablissements partout en Tunisie avec un
+            parcours simple pour chercher, comparer et reserver.
+          </p>
+          <div className="hero-actions">
+            <Link to="/services" className="btn btn-primary">
+              <FaPlayCircle className="icon icon-sm" />
+              Explorer les etablissements
+            </Link>
+            <Link to="/establishment-register" className="btn btn-outline">
+              <FaStore className="icon icon-sm" />
+              Ajouter mon etablissement
             </Link>
           </div>
+        </div>
+
+        <div className="platform-preview-card">
+          <div className="preview-topline">
+            <span>CityReserve Tunisie</span>
+            <strong>National</strong>
+          </div>
+          <div className="preview-map">
+            <FaMapMarkedAlt />
+            <span>Toute la Tunisie</span>
+          </div>
+          <div className="preview-booking">
+            <FaCalendarCheck />
+            <div>
+              <strong>Reservation envoyee</strong>
+              <span>Client -> etablissement -> historique</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-header">
+        <span className="eyebrow">Explorer</span>
+        <h2 className="section-title">Choisissez une categorie</h2>
+        <p className="section-subtitle">
+          Chaque carte mene vers une liste enrichie avec prix, capacite, distance et
+          details de reservation.
+        </p>
+      </div>
+
+      <div className="grid-container category-grid">
+        {categories.map((category) => (
+          <Link
+            key={category.id}
+            to={`/services?category=${encodeURIComponent(category.title)}`}
+            className="category-card glass-panel"
+            style={{ "--category-accent": category.accent }}
+          >
+            <div
+              className="card-icon icon icon-lg"
+              style={{
+                background: category.color,
+                color: "white",
+              }}
+            >
+              {category.icon}
+            </div>
+            <h3 className="card-title">{category.title}</h3>
+            <p className="card-desc">{category.description}</p>
+            <span className="category-link">Voir les etablissements</span>
+          </Link>
         ))}
       </div>
     </div>

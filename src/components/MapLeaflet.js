@@ -63,7 +63,9 @@ function Map({ userLocation, establishments }) {
           </Marker>
         )}
 
-        {establishments && establishments.map((est) => (
+        {establishments && establishments
+          .filter((est) => typeof est.lat === "number" && typeof est.lng === "number")
+          .map((est) => (
           <Marker
             key={est.id}
             position={[est.lat, est.lng]}

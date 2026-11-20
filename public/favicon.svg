@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="CityReserve favicon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1a38" />
+      <stop offset="100%" stop-color="#1e2f4f" />
+    </linearGradient>
+    <radialGradient id="innerGlow" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#203d72" />
+      <stop offset="100%" stop-color="#1a315a" />
+    </radialGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#63a5ff" />
+      <stop offset="100%" stop-color="#3d86f5" />
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="252" height="252" rx="36" fill="url(#bg)" stroke="#33496f" stroke-width="2" />
+  <circle cx="128" cy="128" r="78" fill="url(#innerGlow)" />
+
+  <path
+    d="M128 62c-26.51 0-48 21.49-48 48c0 34.62 42.38 74.31 45.13 76.86a4 4 0 0 0 5.74 0C133.62 184.31 176 144.62 176 110c0-26.51-21.49-48-48-48Z"
+    fill="url(#pin)"
+  />
+
+  <circle cx="128" cy="108" r="22" fill="#0f1a38" />
+  <path d="m118 108l7 7l13-14" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

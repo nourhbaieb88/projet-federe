@@ -1,22 +1,17 @@
-function Input({ type, placeholder, value, onChange }) {
+function Input({ type, placeholder, value, onChange, className = "", style, ...rest }) {
+  const classes = ["form-input", className].filter(Boolean).join(" ");
+
   return (
     <input
       type={type}
       placeholder={placeholder}
       value={value}
       onChange={onChange}
-      style={styles.input}
+      className={classes}
+      style={style}
+      {...rest}
     />
   );
 }
-
-const styles = {
-  input: {
-    display: "block",
-    margin: "10px 0",
-    padding: "10px",
-    width: "250px"
-  }
-};
 
 export default Input;

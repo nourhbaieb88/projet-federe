@@ -1,0 +1,28 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CityReserve logo">
+  <defs>
+    <linearGradient id="cr-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1D4ED8"/>
+      <stop offset="100%" stop-color="#0EA5A4"/>
+    </linearGradient>
+    <linearGradient id="cr-text" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1E40AF"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(24,24)">
+    <rect x="0" y="0" width="312" height="312" rx="72" fill="url(#cr-bg)"/>
+
+    <g transform="translate(58,42)">
+      <path d="M98 0C43.9 0 0 43.9 0 98c0 70.9 85.4 153.6 89 157.1c2.5 2.4 6.6 2.4 9.1 0C101.6 251.6 187 168.9 187 98C187 43.9 143.1 0 89 0z" fill="#FFFFFF"/>
+      <circle cx="89" cy="98" r="41" fill="url(#cr-bg)"/>
+      <path d="M63 98l17 17l34-34" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(380,95)">
+    <text x="0" y="95" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="108" font-weight="800" fill="url(#cr-text)">City</text>
+    <text x="247" y="95" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="108" font-weight="800" fill="#0F172A">Reserve</text>
+    <text x="4" y="158" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="500" fill="#334155">Reservez localement, simplement</text>
+  </g>
+</svg>

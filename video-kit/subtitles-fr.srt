@@ -1,0 +1,32 @@
+1
+00:00:00,000 --> 00:00:05,000
+Trouver un bon endroit ne devrait pas etre complique.
+
+2
+00:00:05,000 --> 00:00:10,000
+Avec CityReserve, tout est centralise.
+
+3
+00:00:10,000 --> 00:00:18,000
+Choisissez une categorie, comparez les avis et les prix.
+
+4
+00:00:18,000 --> 00:00:25,000
+Consultez le profil complet: photos, horaires, services.
+
+5
+00:00:25,000 --> 00:00:32,000
+Selectionnez votre date, votre heure, puis reservez.
+
+6
+00:00:32,000 --> 00:00:38,000
+L'etablissement recoit la demande et confirme en un clic.
+
+7
+00:00:38,000 --> 00:00:43,000
+Vous recevez la confirmation instantanement.
+
+8
+00:00:43,000 --> 00:00:45,000
+CityReserve. Reservez localement, simplement.
+Disponible prochainement.

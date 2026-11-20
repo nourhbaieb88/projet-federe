@@ -1,0 +1,40 @@
+<svg width="1400" height="360" viewBox="0 0 1400 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CityReserve logo v2">
+  <defs>
+    <linearGradient id="cr2-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="cr2-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#60A5FA"/>
+    </linearGradient>
+    <linearGradient id="cr2-word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+    <filter id="cr2-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(24,24)">
+    <rect x="0" y="0" width="312" height="312" rx="70" fill="url(#cr2-card)" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2"/>
+    <circle cx="156" cy="156" r="98" fill="rgba(59,130,246,0.12)" filter="url(#cr2-glow)"/>
+
+    <g transform="translate(88,60)">
+      <path d="M68 0C30.4 0 0 30.4 0 68c0 49.1 59.4 106.5 61.8 108.9c1.8 1.7 4.7 1.7 6.5 0C70.6 174.5 130 117.1 130 68C130 30.4 99.6 0 62 0z" fill="url(#cr2-accent)"/>
+      <circle cx="62" cy="68" r="27" fill="#0F172A"/>
+      <path d="M44 68l12 12l24-24" fill="none" stroke="#F8FAFC" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(384,102)">
+    <text x="0" y="90" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="108" font-weight="800" fill="#F8FAFC">City</text>
+    <text x="238" y="90" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="108" font-weight="800" fill="url(#cr2-word)">Reserve</text>
+    <text x="3" y="150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="32" font-weight="500" fill="#94A3B8">Reservez localement, simplement</text>
+  </g>
+</svg>

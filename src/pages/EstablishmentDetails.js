@@ -1,710 +1,762 @@
-import { useParams, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+
 import Button from "../components/Button";
-import Input from "../components/Input";
-import { establishmentService } from "../services/api";
+import { getSampleEstablishmentById } from "../data/sampleEstablishments";
+import {
+  establishmentService,
+  messageService,
+  reservationService,
+} from "../services/api";
+import { formatTnd, normalizePriceRange } from "../utils/currency";
+import {
+  formatReservationDate,
+  formatReservationTime,
+} from "../utils/reservations";
+
+const initialReservationData = {
+  date: "",
+  time: "",
+  guests: "2",
+  specialRequests: "",
+};
+
+const initialMessageData = {
+  subject: "",
+  message: "",
+};
 
 function EstablishmentDetails() {
   const { id } = useParams();
+  const [activeTab, setActiveTab] = useState("about");
   const [establishment, setEstablishment] = useState(null);
+  const [services, setServices] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showReservationForm, setShowReservationForm] = useState(false);
-  const [showMessageForm, setShowMessageForm] = useState(false);
-  const [showComments, setShowComments] = useState(false);
-  const [reservationData, setReservationData] = useState({
-    date: "",
-    time: "",
-    guests: 1,
-    specialRequests: ""
-  });
-  const [messageData, setMessageData] = useState({
-    subject: "",
-    message: ""
-  });
+  const [reservationData, setReservationData] = useState(initialReservationData);
+  const [reservationFeedback, setReservationFeedback] = useState(null);
+  const [messageData, setMessageData] = useState(initialMessageData);
   const [newComment, setNewComment] = useState("");
   const [userRating, setUserRating] = useState(0);
-  const [reservationSent, setReservationSent] = useState(false);
-  const [reservationInfo, setReservationInfo] = useState({ date: "", time: "", guests: 1 });
-  const [comments, setComments] = useState([]);
+  const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
+  const [isSubmittingMessage, setIsSubmittingMessage] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
-  // Fetch establishment data from API
-  useEffect(() => {
-    const fetchEstablishment = async () => {
-      try {
-        setLoading(true);
-        const data = await establishmentService.getById(id);
-        setEstablishment(data);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching establishment:", err);
-        // Fallback: use hardcoded data if API fails
-        const fallbackEstablishments = [
-          {
-            id: 1,
-            title: "Restaurant Le Jardin",
-            category: "Restaurants",
-            location: "Tunis",
-            rating: 4.5,
-            address: "123 Rue de la Liberté, Tunis",
-            phone: "+216 71 123 456",
-            email: "contact@lejardin.tn",
-            lat: 36.8065,
-            lng: 10.1815,
-            priceRange: "€€ - Moyen",
-            capacity: 80,
-            description: "Restaurant traditionnel tunisien avec vue sur la mer. Spécialités : couscous, tajine, pastilla. Ambiance conviviale avec musique traditionnelle.",
-            openingHours: {
-              monday: { open: "12:00", close: "23:00", closed: false },
-              tuesday: { open: "12:00", close: "23:00", closed: false },
-              wednesday: { open: "12:00", close: "23:00", closed: false },
-              thursday: { open: "12:00", close: "23:00", closed: false },
-              friday: { open: "12:00", close: "23:00", closed: false },
-              saturday: { open: "12:00", close: "23:00", closed: false },
-              sunday: { open: "12:00", close: "23:00", closed: false }
-            },
-            images: [
-              "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",
-              "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600"
-            ],
-            features: ["Climatisation", "WiFi gratuit", "Parking", "Terrasse"]
-          }
-        ];
-        const fallback = fallbackEstablishments.find(est => est.id === parseInt(id));
-        setEstablishment(fallback);
-        setError(fallback ? null : "Établissement non trouvé");
-      } finally {
-        setLoading(false);
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (parseError) {
+      return null;
+    }
+  }, []);
+
+  const isOwner = currentUser?.user_type === "establishment";
+  const isSampleEstablishment = String(establishment?.id || "").startsWith("sample-");
+  const openingHoursEntries = Object.entries(establishment?.opening_hours || {});
+  const today = new Date().toISOString().split("T")[0];
+
+  const fetchEstablishmentDetails = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const sampleEstablishment = getSampleEstablishmentById(id);
+      if (sampleEstablishment) {
+        setEstablishment({
+          ...sampleEstablishment,
+          price_range: normalizePriceRange(sampleEstablishment.price_range),
+        });
+        setReviews(sampleEstablishment.reviews || []);
+        setServices(sampleEstablishment.services || []);
+        return;
       }
-    };
 
-    fetchEstablishment();
+      const [establishmentData, reviewData, serviceData] = await Promise.all([
+        establishmentService.getById(id),
+        establishmentService.getReviews(id).catch(() => []),
+        establishmentService.getServices(id).catch(() => []),
+      ]);
+
+      setEstablishment({
+        ...establishmentData,
+        price_range: normalizePriceRange(establishmentData.price_range),
+      });
+      setReviews(Array.isArray(reviewData) ? reviewData : reviewData.results || []);
+      setServices(Array.isArray(serviceData) ? serviceData : serviceData.results || []);
+    } catch (fetchError) {
+      console.error(fetchError);
+      const sampleEstablishment = getSampleEstablishmentById(id);
+      if (sampleEstablishment) {
+        setEstablishment({
+          ...sampleEstablishment,
+          price_range: normalizePriceRange(sampleEstablishment.price_range),
+        });
+        setReviews(sampleEstablishment.reviews || []);
+        setServices(sampleEstablishment.services || []);
+        return;
+      }
+      setError("Impossible de charger cet etablissement.");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  const handleReservationChange = (e) => {
-    const { name, value } = e.target;
-    setReservationData({
-      ...reservationData,
-      [name]: value
-    });
-  };
+  useEffect(() => {
+    fetchEstablishmentDetails();
+  }, [fetchEstablishmentDetails]);
 
-  const handleReservationSubmit = () => {
+  const handleReservationSubmit = async () => {
+    if (!currentUser) {
+      toast.error("Connectez-vous pour reserver.");
+      return;
+    }
+
     if (!reservationData.date || !reservationData.time) {
-      alert("Veuillez sélectionner une date et une heure");
+      toast.error("Veuillez selectionner une date et une heure.");
       return;
     }
 
-    // Sauvegarder les données pour la bannière
-    setReservationInfo({
-      date: reservationData.date,
-      time: reservationData.time,
-      guests: reservationData.guests
-    });
+    try {
+      setIsSubmittingReservation(true);
 
-    // Afficher la bannière de succès
-    setReservationSent(true);
+      if (isSampleEstablishment) {
+        setReservationFeedback({
+          id: "sample-reservation",
+          date: reservationData.date,
+          time: reservationData.time,
+          guests: Number(reservationData.guests),
+          label: "En attente",
+        });
+        setReservationData(initialReservationData);
+        toast.success("Reservation envoyee avec succes.");
+        return;
+      }
 
-    // Réinitialiser le formulaire immédiatement
-    setReservationData({
-      date: "",
-      time: "",
-      guests: 1,
-      specialRequests: ""
-    });
-    setShowReservationForm(false);
+      const reservation = await reservationService.create({
+        establishment: id,
+        date: reservationData.date,
+        time: reservationData.time,
+        number_of_people: Number(reservationData.guests),
+        special_requests: reservationData.specialRequests,
+      });
 
-    // Cacher la bannière après 5 secondes
-    setTimeout(() => {
-      setReservationSent(false);
-    }, 5000);
+      setReservationFeedback({
+        id: reservation.id,
+        date: reservation.date,
+        time: reservation.time,
+        guests: reservation.number_of_people,
+        label: reservation.status_label || "En attente",
+      });
+      setReservationData(initialReservationData);
+
+      toast.success(
+        "Reservation envoyee. L'etablissement la voit maintenant dans ses demandes."
+      );
+    } catch (submitError) {
+      console.error(submitError);
+      toast.error(submitError.message || "Impossible d'envoyer cette reservation.");
+    } finally {
+      setIsSubmittingReservation(false);
+    }
   };
 
-  const handleMessageChange = (e) => {
-    const { name, value } = e.target;
-    setMessageData({
-      ...messageData,
-      [name]: value
-    });
-  };
-
-  const handleMessageSubmit = () => {
-    if (!messageData.subject || !messageData.message) {
-      alert("Veuillez remplir l'objet et le message");
+  const handleMessageSubmit = async () => {
+    if (!currentUser) {
+      toast.error("Connectez-vous pour envoyer un message.");
       return;
     }
 
-    alert(`Message envoyé à "${establishment.title}" avec succès ! L'établissement vous répondra bientôt.`);
+    if (!messageData.message.trim()) {
+      toast.error("Veuillez ecrire un message.");
+      return;
+    }
 
-    // Réinitialiser le formulaire
-    setMessageData({
-      subject: "",
-      message: ""
-    });
-    setShowMessageForm(false);
+    try {
+      setIsSubmittingMessage(true);
+
+      if (isSampleEstablishment) {
+        setMessageData(initialMessageData);
+        toast.success("Message envoye avec succes.");
+        return;
+      }
+
+      const conversationsData = await messageService.getAll();
+      const conversations = Array.isArray(conversationsData)
+        ? conversationsData
+        : conversationsData.results || [];
+
+      let conversation = conversations.find(
+        (item) => Number(item.establishment) === Number(id)
+      );
+
+      if (!conversation) {
+        conversation = await messageService.createConversation(id);
+      }
+
+      const content = messageData.subject
+        ? `[${messageData.subject}]\n${messageData.message.trim()}`
+        : messageData.message.trim();
+
+      await messageService.sendMessage(conversation.id, content);
+      setMessageData(initialMessageData);
+      toast.success("Message envoye avec succes.");
+    } catch (submitError) {
+      console.error(submitError);
+      toast.error(submitError.message || "Impossible d'envoyer ce message.");
+    } finally {
+      setIsSubmittingMessage(false);
+    }
   };
 
-  const handleCommentSubmit = () => {
+  const handleReviewSubmit = async () => {
+    if (!currentUser) {
+      toast.error("Connectez-vous pour laisser un avis.");
+      return;
+    }
+
     if (!newComment.trim() || userRating === 0) {
-      alert("Veuillez écrire un commentaire et donner une note");
+      toast.error("Ajoutez une note et un commentaire.");
       return;
     }
 
-    const comment = {
-      id: comments.length + 1,
-      user: "Vous",
-      rating: userRating,
-      comment: newComment,
-      date: new Date().toISOString().split('T')[0]
-    };
+    try {
+      setIsSubmittingReview(true);
 
-    setComments([comment, ...comments]);
-    setNewComment("");
-    setUserRating(0);
-    alert("Commentaire ajouté avec succès !");
+      if (isSampleEstablishment) {
+        const review = {
+          id: `sample-review-${Date.now()}`,
+          user_name: currentUser?.first_name || "Utilisateur",
+          rating: userRating,
+          comment: newComment.trim(),
+          created_at: new Date().toISOString(),
+        };
+        setReviews((current) => [review, ...current]);
+        setNewComment("");
+        setUserRating(0);
+        toast.success("Avis publie avec succes.");
+        return;
+      }
+
+      const review = await establishmentService.addReview(id, {
+        rating: userRating,
+        comment: newComment.trim(),
+      });
+      setReviews((current) => [review, ...current]);
+      setEstablishment((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const currentTotal = Number(current.total_reviews || 0);
+        const currentAverage = Number(current.average_rating || current.rating || 0);
+        const nextTotal = currentTotal + 1;
+        const nextAverage = ((currentAverage * currentTotal) + userRating) / nextTotal;
+
+        return {
+          ...current,
+          total_reviews: nextTotal,
+          average_rating: nextAverage,
+          rating: nextAverage,
+        };
+      });
+      setNewComment("");
+      setUserRating(0);
+      toast.success("Avis publie avec succes.");
+    } catch (submitError) {
+      console.error(submitError);
+      toast.error(submitError.message || "Impossible de publier cet avis.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
-  // Loading state
   if (loading) {
-    return <div className="page_title">Chargement...</div>;
-  }
-
-  // Error or not found state
-  if (error === "Établissement non trouvé" || !establishment) {
     return (
-      <div className="container">
-        <h1 className="page_title">Établissement non trouvé</h1>
-        <Link to="/services">
-          <Button text="Retour aux services" />
-        </Link>
+      <div className="container" style={{ textAlign: "center", padding: "5rem" }}>
+        <div className="spinner"></div> Chargement...
       </div>
     );
   }
 
-  const isOpenToday = () => {
-    const today = new Date();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = dayNames[today.getDay()];
-    const hours = establishment.openingHours[currentDay];
-    if (!hours || hours.closed) return false;
-
-    const now = new Date();
-    const currentTime = now.getHours() * 100 + now.getMinutes();
-    const openTime = parseInt(hours.open.replace(':', ''));
-    const closeTime = parseInt(hours.close.replace(':', ''));
-
-    return currentTime >= openTime && currentTime <= closeTime;
-  };
+  if (error || !establishment) {
+    return (
+      <div className="container" style={{ textAlign: "center", padding: "5rem" }}>
+        {error || "Etablissement introuvable."}
+      </div>
+    );
+  }
 
   return (
     <div className="container">
-      {reservationSent && (
-        <div style={{
-          backgroundColor: 'rgba(76, 175, 80, 0.95)',
-          color: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          marginBottom: '2rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
-          animation: 'slideDown 0.3s ease-out'
-        }}>
-          <span style={{fontSize: '1.5rem'}}>✅</span>
-          <div>
-            <h3 style={{margin: '0 0 0.5rem 0', fontSize: '1.1rem'}}>Demande de réservation envoyée!</h3>
-            <p style={{margin: 0}}>
-              Votre réservation pour le {reservationInfo.date} à {reservationInfo.time} a bien été reçue par <strong>{establishment.title}</strong>. 
-              L'établissement confirmera votre demande bientôt.
-            </p>
+      <div
+        className="glass-panel"
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          minHeight: "280px",
+          display: "flex",
+          alignItems: "flex-end",
+          marginBottom: "2rem",
+          backgroundImage: `linear-gradient(to top, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.25)), url(${
+            establishment.profile_image ||
+            "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&q=80"
+          })`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <span className="status-badge status-confirmed">{establishment.category}</span>
+          <h1 style={{ margin: "1rem 0 0.5rem", fontSize: "2.4rem" }}>{establishment.name}</h1>
+          <p style={{ margin: 0, color: "rgba(255,255,255,0.82)" }}>{establishment.address}</p>
+          <div style={{ marginTop: "1rem", color: "rgba(255,255,255,0.9)" }}>
+            Note moyenne : {(establishment.average_rating || establishment.rating || 0).toFixed(1)}
+            /5 - {establishment.total_reviews || 0} avis
           </div>
-        </div>
-      )}
-      <div className="establishment-header" style={{marginBottom: '2rem'}}>
-        <Link to="/services" style={{color: 'var(--accent-color)', textDecoration: 'none', marginBottom: '1rem', display: 'inline-block'}}>
-          ← Retour aux établissements
-        </Link>
-        <h1 className="page-title" style={{marginBottom: '0.5rem'}}>{establishment.title}</h1>
-        <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem'}}>
-          <span className="rating">⭐ {establishment.rating}/5</span>
-          <span style={{color: 'var(--text-muted)'}}>•</span>
-          <span>{establishment.category}</span>
-          <span style={{color: 'var(--text-muted)'}}>•</span>
-          <span>{establishment.location}</span>
-          {establishment.priceRange && (
-            <>
-              <span style={{color: 'var(--text-muted)'}}>•</span>
-              <span>{establishment.priceRange}</span>
-            </>
-          )}
-        </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-          <span className={`status-badge ${isOpenToday() ? 'status-completed' : 'status-cancelled'}`}>
-            {isOpenToday() ? '🟢 Ouvert' : '🔴 Fermé'}
-          </span>
-          <span style={{color: 'var(--text-muted)'}}>
-            Capacité: {establishment.capacity} places
-          </span>
         </div>
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', marginBottom: '2rem'}}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 360px)",
+          gap: "2rem",
+        }}
+      >
         <div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              marginBottom: "1rem",
+            }}
+          >
+            {[
+              ["about", "A propos"],
+              ["services", "Services"],
+              ["reviews", `Avis (${reviews.length})`],
+              ["contact", "Contact"],
+            ].map(([tabValue, label]) => (
+              <button
+                key={tabValue}
+                type="button"
+                onClick={() => setActiveTab(tabValue)}
+                className={activeTab === tabValue ? "btn btn-primary" : "btn btn-secondary"}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="glass-panel">
-            <h2 style={{marginBottom: '1rem'}}>Images</h2>
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem'}}>
-              {establishment.images.map((image, index) => (
-                <img
-                  key={index}
-                  src={image}
-                  alt={`${establishment.title} ${index + 1}`}
-                  style={{width: '100%', height: '150px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer'}}
-                  onClick={() => window.open(image, '_blank')}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{marginTop: '2rem'}}>
-            <h2 style={{marginBottom: '1rem'}}>Description</h2>
-            <p style={{color: 'var(--text-muted)', lineHeight: '1.6'}}>
-              {establishment.description}
-            </p>
-          </div>
-
-          {establishment.features && establishment.features.length > 0 && (
-            <div className="glass-panel" style={{marginTop: '2rem'}}>
-              <h2 style={{marginBottom: '1rem'}}>Équipements et services</h2>
-              <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
-                {establishment.features.map((feature, index) => (
-                  <span key={index} style={{
-                    background: 'var(--panel-bg)',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '20px',
-                    fontSize: '0.9rem',
-                    border: '1px solid var(--border-color)'
-                  }}>
-                    {feature}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="glass-panel">
-            <h2 style={{marginBottom: '1rem'}}>Informations de contact</h2>
-            <div style={{marginBottom: '1rem'}}>
-              <strong>📍 Adresse:</strong><br />
-              {establishment.address}
-            </div>
-            <div style={{marginBottom: '1rem'}}>
-              <strong>📞 Téléphone:</strong><br />
-              <a href={`tel:${establishment.phone}`} style={{color: 'var(--accent-color)'}}>
-                {establishment.phone}
-              </a>
-            </div>
-            <div style={{marginBottom: '1rem'}}>
-              <strong>✉️ Email:</strong><br />
-              <a href={`mailto:${establishment.email}`} style={{color: 'var(--accent-color)'}}>
-                {establishment.email}
-              </a>
-            </div>
-            <div style={{marginBottom: '1rem'}}>
-              <strong>📍 Coordonnées GPS:</strong><br />
-              {establishment.lat}, {establishment.lng}
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{marginTop: '2rem'}}>
-            <h2 style={{marginBottom: '1rem'}}>🕐 Horaires d'ouverture</h2>
-            <div style={{display: 'grid', gap: '0.75rem'}}>
-              {Object.entries(establishment.openingHours).map(([day, hours]) => {
-                const today = new Date();
-                const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-                const currentDay = dayNames[today.getDay()];
-                const isToday = day === currentDay;
-
-                return (
-                  <div
-                    key={day}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      background: isToday ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                      border: isToday ? '1px solid var(--accent-color)' : 'none'
-                    }}
-                  >
-                    <span style={{
-                      textTransform: 'capitalize',
-                      fontWeight: isToday ? 'bold' : '500',
-                      color: isToday ? 'var(--accent-color)' : 'var(--text-color)'
-                    }}>
-                      {day} {isToday ? '(Aujourd\'hui)' : ''}
-                    </span>
-                    <span style={{
-                      color: hours.closed ? '#ef4444' : '#10b981',
-                      fontWeight: '600'
-                    }}>
-                      {hours.closed ? '🔴 Fermé' : `🟢 ${hours.open} - ${hours.close}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{marginTop: '2rem'}}>
-            <h2 style={{marginBottom: '1rem'}}>📊 Disponibilité</h2>
-            <div style={{display: 'grid', gap: '1rem'}}>
-              <div>
-                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>Capacité totale</p>
-                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.25rem'
-                  }}>
-                    👥
-                  </div>
-                  <div>
-                    <strong style={{fontSize: '1.25rem'}}>{establishment.capacity}</strong> places totales
-                  </div>
-                </div>
-              </div>
-
-              <div style={{borderTop: '1px solid var(--border-color)', paddingTop: '1rem'}}>
-                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>Places disponibles aujourd'hui</p>
-                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.25rem'
-                  }}>
-                    ✓
-                  </div>
-                  <div>
-                    <strong style={{fontSize: '1.25rem'}}>{Math.max(0, establishment.capacity - 15)}</strong> places libres
-                  </div>
-                </div>
-              </div>
-
-              <div style={{borderTop: '1px solid var(--border-color)', paddingTop: '1rem'}}>
-                <p style={{color: 'var(--text-muted)', marginBottom: '0.5rem', fontSize: '0.9rem'}}>État</p>
-                <span className={`status-badge ${isOpenToday() ? 'status-completed' : 'status-cancelled'}`}>
-                  {isOpenToday() ? '🟢 Ouvert maintenant' : '🔴 Actuellement fermé'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{marginTop: '2rem'}}>
-            {!showReservationForm ? (
-              <Button
-                text="Demander une réservation"
-                onClick={() => setShowReservationForm(true)}
-              />
-            ) : (
-              <div className="glass-panel" style={{marginTop: '1rem'}}>
-                <h3 style={{marginBottom: '1rem', color: 'var(--accent-color)'}}>
-                  📅 Demander une réservation
-                </h3>
-
-                <div style={{background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem'}}>
-                  <p style={{color: 'var(--text-color)', margin: 0, fontSize: '0.9rem'}}>
-                    💡 Votre demande sera envoyée à <strong>{establishment.title}</strong>.
-                    L'établissement devra confirmer ou refuser votre demande.
+            {activeTab === "about" && (
+              <div style={{ display: "grid", gap: "1.5rem" }}>
+                <div>
+                  <h3>Description</h3>
+                  <p style={{ color: "var(--text-secondary)" }}>
+                    {establishment.description || "Aucune description disponible."}
                   </p>
                 </div>
 
-                <div style={{marginBottom: "1rem"}}>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                    📅 Date souhaitée
-                  </label>
-                  <Input
-                    type="date"
-                    name="date"
-                    value={reservationData.date}
-                    onChange={handleReservationChange}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
+                {establishment.images?.length > 0 && (
+                  <div>
+                    <h3>Galerie</h3>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                        gap: "1rem",
+                      }}
+                    >
+                      {establishment.images.slice(0, 6).map((image, index) => (
+                        <img
+                          key={`${image}-${index}`}
+                          src={image}
+                          alt={`${establishment.name} ${index + 1}`}
+                          style={{
+                            width: "100%",
+                            height: "150px",
+                            objectFit: "cover",
+                            borderRadius: "14px",
+                            border: "1px solid var(--border-color)",
+                            boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                <div style={{marginBottom: "1rem"}}>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                    🕐 Heure souhaitée
-                  </label>
-                  <Input
-                    type="time"
-                    name="time"
-                    value={reservationData.time}
-                    onChange={handleReservationChange}
-                  />
-                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: "2rem",
+                  }}
+                >
+                  <div>
+                    <h4>Horaires d'ouverture</h4>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {openingHoursEntries.length === 0 ? (
+                        <li>Horaires non renseignes.</li>
+                      ) : (
+                        openingHoursEntries.map(([day, hours]) => (
+                          <li
+                            key={day}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "0.45rem 0",
+                              borderBottom: "1px solid var(--border-color)",
+                            }}
+                          >
+                            <span style={{ textTransform: "capitalize" }}>{day}</span>
+                            <strong>
+                              {hours.closed
+                                ? "Ferme"
+                                : `${hours.open || "--:--"} - ${hours.close || "--:--"}`}
+                            </strong>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
 
-                <div style={{marginBottom: "1rem"}}>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                    👥 Nombre de personnes
-                  </label>
-                  <select
-                    name="guests"
-                    value={reservationData.guests}
-                    onChange={handleReservationChange}
+                  <div>
+                    <h4>Informations pratiques</h4>
+                    <div style={{ display: "grid", gap: "0.6rem", color: "var(--text-secondary)" }}>
+                      <div>Telephone : {establishment.phone || "Non renseigne"}</div>
+                      <div>Email : {establishment.email || "Non renseigne"}</div>
+                      <div>Capacite : {establishment.capacity || "N/A"} personnes</div>
+                      <div>Prix : {normalizePriceRange(establishment.price_range) || "Non renseigne"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "services" && (
+              <div>
+                <h3>Services proposes</h3>
+                <div style={{ display: "grid", gap: "1rem" }}>
+                  {services.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)" }}>
+                      Aucun service specifique n'est encore renseigne.
+                    </p>
+                  ) : (
+                    services.map((service) => (
+                      <div
+                        key={service.id}
+                        style={{
+                          padding: "1rem",
+                          borderRadius: "12px",
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div>
+                            <strong>{service.name}</strong>
+                            <div style={{ color: "var(--text-muted)", marginTop: "0.35rem" }}>
+                              {service.description || "Aucune description"}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div>{formatTnd(service.price)}</div>
+                            <div style={{ color: "var(--text-muted)" }}>{service.duration} min</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "reviews" && (
+              <div style={{ display: "grid", gap: "1.5rem" }}>
+                {currentUser && !isOwner && (
+                  <div
                     style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--panel-bg)',
-                      color: 'var(--text-color)',
-                      fontSize: '1rem'
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "12px",
+                      padding: "1rem",
                     }}
                   >
-                    {[1,2,3,4,5,6,7,8,9,10].map(num => (
-                      <option key={num} value={num}>{num} personne{num > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                </div>
+                    <h4>Laisser un avis</h4>
+                    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setUserRating(star)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: star <= userRating ? "var(--warning-color)" : "var(--text-muted)",
+                            fontSize: "1.4rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          *
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      className="form-input"
+                      rows={4}
+                      value={newComment}
+                      onChange={(event) => setNewComment(event.target.value)}
+                      placeholder="Partagez votre experience..."
+                    />
+                    <div style={{ marginTop: "1rem" }}>
+                      <Button
+                        text={isSubmittingReview ? "Publication..." : "Publier l'avis"}
+                        className="btn-primary"
+                        onClick={handleReviewSubmit}
+                        disabled={isSubmittingReview}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div style={{marginBottom: "1.5rem"}}>
-                  <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                    📝 Demandes spéciales (optionnel)
-                  </label>
-                  <textarea
-                    name="specialRequests"
-                    value={reservationData.specialRequests}
-                    onChange={handleReservationChange}
-                    placeholder="Allergies, préférences spéciales, occasions particulières..."
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--panel-bg)',
-                      color: 'var(--text-color)',
-                      fontSize: '1rem',
-                      minHeight: '80px',
-                      resize: 'vertical'
-                    }}
-                  />
+                <div style={{ display: "grid", gap: "1rem" }}>
+                  {reviews.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)" }}>Aucun avis pour le moment.</p>
+                  ) : (
+                    reviews.map((review) => (
+                      <div
+                        key={review.id}
+                        style={{
+                          paddingBottom: "1rem",
+                          borderBottom: "1px solid var(--border-color)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                            marginBottom: "0.35rem",
+                          }}
+                        >
+                          <strong>{review.user_name || review.user_username || "Utilisateur"}</strong>
+                          <span>{`${"*".repeat(review.rating)}${".".repeat(5 - review.rating)}`}</span>
+                        </div>
+                        <div style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: "0.6rem" }}>
+                          {new Date(review.created_at).toLocaleDateString("fr-FR")}
+                        </div>
+                        <div>{review.comment}</div>
+                      </div>
+                    ))
+                  )}
                 </div>
+              </div>
+            )}
 
-                <div style={{display: 'flex', gap: '1rem'}}>
-                  <Button
-                    text="Envoyer la demande"
-                    onClick={handleReservationSubmit}
-                  />
-                  <Button
-                    text="Annuler"
-                    onClick={() => {
-                      setShowReservationForm(false);
-                      setReservationData({
-                        date: "",
-                        time: "",
-                        guests: 1,
-                        specialRequests: ""
-                      });
-                    }}
-                  />
-                </div>
+            {activeTab === "contact" && (
+              <div style={{ display: "grid", gap: "1rem" }}>
+                {!currentUser ? (
+                  <div style={{ textAlign: "center" }}>
+                    <p>Connectez-vous pour contacter cet etablissement.</p>
+                    <Link to="/login" className="btn btn-primary">
+                      Se connecter
+                    </Link>
+                  </div>
+                ) : isOwner ? (
+                  <p style={{ color: "var(--text-muted)" }}>
+                    Un gerant ne peut pas ouvrir une conversation avec son propre etablissement.
+                  </p>
+                ) : (
+                  <>
+                    <div>
+                      <label className="form-label">Sujet (optionnel)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={messageData.subject}
+                        onChange={(event) =>
+                          setMessageData((current) => ({
+                            ...current,
+                            subject: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Message</label>
+                      <textarea
+                        className="form-input"
+                        rows={5}
+                        value={messageData.message}
+                        onChange={(event) =>
+                          setMessageData((current) => ({
+                            ...current,
+                            message: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <Button
+                      text={isSubmittingMessage ? "Envoi..." : "Envoyer le message"}
+                      className="btn-primary"
+                      onClick={handleMessageSubmit}
+                      disabled={isSubmittingMessage}
+                    />
+                  </>
+                )}
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Section Messages */}
-      <div className="glass-panel" style={{marginTop: '2rem'}}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-          <h2>💬 Contacter l'établissement</h2>
-          {!showMessageForm ? (
-            <Button
-              text="Envoyer un message"
-              onClick={() => setShowMessageForm(true)}
-            />
-          ) : (
-            <Button
-              text="Annuler"
-              onClick={() => {
-                setShowMessageForm(false);
-                setMessageData({ subject: "", message: "" });
-              }}
-            />
-          )}
-        </div>
-
-        {showMessageForm && (
-          <div style={{background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem'}}>
-            <p style={{color: 'var(--text-color)', margin: 0, fontSize: '0.9rem'}}>
-              💡 Envoyez un message directement à <strong>{establishment.title}</strong>.
-              Ils vous répondront par email ou téléphone.
-            </p>
-          </div>
-        )}
-
-        {showMessageForm && (
-          <div style={{display: 'grid', gap: '1rem'}}>
+        <div>
+          <div className="glass-panel" style={{ position: "sticky", top: "2rem", display: "grid", gap: "1rem" }}>
             <div>
-              <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                📝 Objet du message
-              </label>
-              <Input
-                type="text"
-                name="subject"
-                placeholder="Ex: Question sur le menu, demande d'information..."
-                value={messageData.subject}
-                onChange={handleMessageChange}
-              />
+              <h3 style={{ marginTop: 0 }}>Faire une reservation</h3>
+              <p style={{ color: "var(--text-muted)", marginBottom: 0 }}>
+                Chaque demande est envoyee a l'etablissement, qui peut ensuite l'accepter ou la refuser.
+              </p>
             </div>
 
-            <div>
-              <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-                💬 Votre message
-              </label>
-              <textarea
-                name="message"
-                placeholder="Écrivez votre message ici..."
-                value={messageData.message}
-                onChange={handleMessageChange}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--panel-bg)',
-                  color: 'var(--text-color)',
-                  fontSize: '1rem',
-                  minHeight: '100px',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            <Button
-              text="Envoyer le message"
-              onClick={handleMessageSubmit}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Section Commentaires et Avis */}
-      <div className="glass-panel" style={{marginTop: '2rem'}}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-          <h2>⭐ Avis et Commentaires ({comments.length})</h2>
-          <Button
-            text={showComments ? "Masquer les commentaires" : "Voir tous les commentaires"}
-            onClick={() => setShowComments(!showComments)}
-          />
-        </div>
-
-        {/* Système d'évaluation */}
-        <div style={{background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '2rem'}}>
-          <h3 style={{marginBottom: '1rem', color: 'var(--accent-color)'}}>
-            📝 Donnez votre avis sur {establishment.title}
-          </h3>
-
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-              ⭐ Votre note (sur 5 étoiles)
-            </label>
-            <div style={{display: 'flex', gap: '0.5rem'}}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => setUserRating(star)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '1.5rem',
-                    cursor: 'pointer',
-                    color: star <= userRating ? '#fbbf24' : '#e5e7eb'
-                  }}
-                >
-                  ⭐
-                </button>
-              ))}
-              <span style={{marginLeft: '1rem', color: 'var(--text-muted)'}}>
-                {userRating > 0 && `${userRating}/5 étoiles`}
-              </span>
-            </div>
-          </div>
-
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: 'bold'}}>
-              💬 Votre commentaire
-            </label>
-            <textarea
-              placeholder="Partagez votre expérience avec cet établissement..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
+            <div
               style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                background: 'var(--panel-bg)',
-                color: 'var(--text-color)',
-                fontSize: '1rem',
-                minHeight: '80px',
-                resize: 'vertical'
+                padding: "1rem",
+                borderRadius: "14px",
+                background: "rgba(59, 130, 246, 0.1)",
+                border: "1px solid rgba(59, 130, 246, 0.25)",
+                display: "grid",
+                gap: "0.45rem",
               }}
-            />
-          </div>
+            >
+              <div>Capacite maximale : {establishment.capacity || "N/A"} personnes</div>
+              <div>Reponse du partenaire : acceptation ou refus depuis son tableau de bord</div>
+              <div>Suivi client : visible ensuite dans votre historique et vos messages</div>
+            </div>
 
-          <Button
-            text="Publier mon avis"
-            onClick={handleCommentSubmit}
-          />
-        </div>
-
-        {/* Affichage des commentaires */}
-        {showComments && (
-          <div style={{display: 'grid', gap: '1rem'}}>
-            {comments.map((comment) => (
-              <div key={comment.id} style={{
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '1rem',
-                background: 'rgba(255, 255, 255, 0.05)'
-              }}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                    <strong>{comment.user}</strong>
-                    <div style={{display: 'flex'}}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span key={star} style={{color: star <= comment.rating ? '#fbbf24' : '#e5e7eb'}}>
-                          ⭐
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <span style={{color: 'var(--text-muted)', fontSize: '0.9rem'}}>
-                    {new Date(comment.date).toLocaleDateString('fr-FR')}
-                  </span>
+            {reservationFeedback && (
+              <div
+                style={{
+                  padding: "1rem",
+                  borderRadius: "14px",
+                  background: "rgba(16, 185, 129, 0.12)",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  display: "grid",
+                  gap: "0.45rem",
+                }}
+              >
+                <strong>Reservation envoyee</strong>
+                <div>
+                  {formatReservationDate(reservationFeedback.date)} a {formatReservationTime(reservationFeedback.time)}
                 </div>
-                <p style={{margin: 0, color: 'var(--text-color)', lineHeight: '1.5'}}>
-                  {comment.comment}
-                </p>
+                <div>{reservationFeedback.guests} personne(s)</div>
+                <span className="status-badge status-pending" style={{ width: "fit-content" }}>
+                  {reservationFeedback.label}
+                </span>
+                <Link to="/history" className="btn btn-outline" style={{ marginTop: "0.35rem" }}>
+                  Voir mon historique
+                </Link>
               </div>
-            ))}
+            )}
+
+            {!currentUser ? (
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <p>Veuillez vous connecter pour reserver.</p>
+                <Link to="/login" className="btn btn-primary">
+                  Connexion
+                </Link>
+              </div>
+            ) : isOwner ? (
+              <p style={{ color: "var(--text-muted)" }}>
+                Les comptes gerants ne peuvent pas creer de reservation.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <div>
+                  <label className="form-label">Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={reservationData.date}
+                    min={today}
+                    onChange={(event) =>
+                      setReservationData((current) => ({
+                        ...current,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Heure</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={reservationData.time}
+                    onChange={(event) =>
+                      setReservationData((current) => ({
+                        ...current,
+                        time: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Nombre de personnes</label>
+                  <select
+                    className="form-input"
+                    value={reservationData.guests}
+                    onChange={(event) =>
+                      setReservationData((current) => ({
+                        ...current,
+                        guests: event.target.value,
+                      }))
+                    }
+                  >
+                    {Array.from({ length: Math.max(Number(establishment.capacity || 10), 1) }, (_, index) => index + 1)
+                      .slice(0, 12)
+                      .map((count) => (
+                        <option key={count} value={count}>
+                          {count} {count === 1 ? "personne" : "personnes"}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Demandes speciales</label>
+                  <textarea
+                    className="form-input"
+                    rows={4}
+                    value={reservationData.specialRequests}
+                    onChange={(event) =>
+                      setReservationData((current) => ({
+                        ...current,
+                        specialRequests: event.target.value,
+                      }))
+                    }
+                    placeholder="Allergies, emplacement souhaite, precision utile..."
+                  />
+                </div>
+                <Button
+                  text={isSubmittingReservation ? "Envoi..." : "Envoyer la demande"}
+                  className="btn-primary"
+                  onClick={handleReservationSubmit}
+                  disabled={isSubmittingReservation}
+                />
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

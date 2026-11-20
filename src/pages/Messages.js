@@ -1,248 +1,419 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
+
 import Button from "../components/Button";
+import { messageService } from "../services/api";
 
 function Messages() {
-  const [conversations, setConversations] = useState([
-    {
-      id: 1,
-      establishment: "Restaurant Le Jardin",
-      lastMessage: "Merci pour votre réservation ! Nous vous attendons le 15 avril à 19h.",
-      timestamp: "2026-04-10 14:30",
-      unread: true,
-      messages: [
-        {
-          id: 1,
-          sender: "Restaurant Le Jardin",
-          message: "Bonjour ! Nous avons bien reçu votre demande de réservation pour le 15 avril à 19h.",
-          timestamp: "2026-04-08 10:15",
-          isFromEstablishment: true
-        },
-        {
-          id: 2,
-          sender: "Vous",
-          message: "Parfait ! Dois-je apporter quelque chose de spécial ?",
-          timestamp: "2026-04-08 10:30",
-          isFromEstablishment: false
-        },
-        {
-          id: 3,
-          sender: "Restaurant Le Jardin",
-          message: "Non, tout est prévu ! Nous avons hâte de vous accueillir.",
-          timestamp: "2026-04-08 10:45",
-          isFromEstablishment: true
-        },
-        {
-          id: 4,
-          sender: "Restaurant Le Jardin",
-          message: "Merci pour votre réservation ! Nous vous attendons le 15 avril à 19h.",
-          timestamp: "2026-04-10 14:30",
-          isFromEstablishment: true
-        }
-      ]
-    },
-    {
-      id: 2,
-      establishment: "Café Central",
-      lastMessage: "Votre commande est prête !",
-      timestamp: "2026-04-09 16:20",
-      unread: false,
-      messages: [
-        {
-          id: 1,
-          sender: "Café Central",
-          message: "Bonjour ! Votre commande de café et croissant est prête.",
-          timestamp: "2026-04-09 16:20",
-          isFromEstablishment: true
-        }
-      ]
-    }
-  ]);
-
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const messagesEndRef = useRef(null);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (error) {
+      return null;
+    }
+  }, []);
 
-    const message = {
-      id: selectedConversation.messages.length + 1,
-      sender: "Vous",
-      message: newMessage,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      isFromEstablishment: false
-    };
+  const selectedConversation = conversations.find(
+    (conversation) => conversation.id === selectedConversationId
+  );
 
-    const updatedConversations = conversations.map(conv => {
-      if (conv.id === selectedConversation.id) {
-        return {
-          ...conv,
-          messages: [...conv.messages, message],
-          lastMessage: newMessage,
-          timestamp: message.timestamp,
-          unread: false
-        };
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const fetchConversations = useCallback(async (showLoader = true) => {
+    try {
+      if (showLoader) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
       }
-      return conv;
-    });
+      const data = await messageService.getAll();
+      const nextConversations = Array.isArray(data) ? data : data.results || [];
+      setConversations(nextConversations);
+      if (nextConversations.length > 0) {
+        const hasSelectedConversation = nextConversations.some(
+          (conversation) => conversation.id === selectedConversationId
+        );
+        if (!selectedConversationId || !hasSelectedConversation) {
+          setSelectedConversationId(nextConversations[0].id);
+        }
+      }
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Erreur de recuperation des conversations:", error);
+      toast.error("Impossible de charger les conversations.");
+    } finally {
+      if (showLoader) {
+        setLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
+    }
+  }, [selectedConversationId]);
 
-    setConversations(updatedConversations);
-    setSelectedConversation({
-      ...selectedConversation,
-      messages: [...selectedConversation.messages, message],
-      lastMessage: newMessage,
-      timestamp: message.timestamp,
-      unread: false
-    });
-    setNewMessage("");
+  const fetchMessages = useCallback(async (conversationId) => {
+    try {
+      const data = await messageService.getMessages(conversationId);
+      const nextMessages = Array.isArray(data) ? data : data.results || [];
+      setMessages(nextMessages);
+
+      await messageService.markAsRead(conversationId).catch(() => null);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unread_count: 0 }
+            : conversation
+        )
+      );
+    } catch (error) {
+      console.error("Erreur de recuperation des messages:", error);
+      toast.error("Impossible de charger cette conversation.");
+    }
+  }, []);
+
+  const refreshInbox = useCallback(
+    async (showLoader = false) => {
+      await fetchConversations(showLoader);
+      if (selectedConversationId) {
+        await fetchMessages(selectedConversationId);
+      }
+    },
+    [fetchConversations, fetchMessages, selectedConversationId]
+  );
+
+  useEffect(() => {
+    refreshInbox(true);
+    const intervalId = setInterval(() => {
+      refreshInbox(false);
+    }, 20000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [refreshInbox]);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      fetchMessages(selectedConversationId);
+    }
+  }, [fetchMessages, selectedConversationId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversationId) {
+      return;
+    }
+
+    try {
+      setSending(true);
+      const sentMessage = await messageService.sendMessage(
+        selectedConversationId,
+        newMessage.trim()
+      );
+
+      setMessages((current) => [...current, sentMessage]);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === selectedConversationId
+            ? {
+                ...conversation,
+                last_message: sentMessage,
+                unread_count: 0,
+              }
+            : conversation
+        )
+      );
+      setNewMessage("");
+    } catch (error) {
+      console.error("Erreur d'envoi:", error);
+      toast.error(error.message || "Impossible d'envoyer le message.");
+    } finally {
+      setSending(false);
+    }
   };
 
-  const markAsRead = (conversationId) => {
-    const updatedConversations = conversations.map(conv =>
-      conv.id === conversationId ? { ...conv, unread: false } : conv
+  const formatTimestamp = (dateString) => {
+    if (!dateString) {
+      return "";
+    }
+
+    try {
+      return new Date(dateString).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const lastUpdatedLabel = lastUpdated
+    ? lastUpdated.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--";
+
+  if (loading) {
+    return (
+      <div className="container" style={{ textAlign: "center", padding: "5rem" }}>
+        <div className="spinner"></div> Chargement de la messagerie...
+      </div>
     );
-    setConversations(updatedConversations);
-  };
+  }
 
   return (
     <div className="container">
-      <div className="glass-panel">
-        <h2 className="page-title" style={{marginBottom: "2rem"}}>💬 Mes Messages</h2>
+      <div className="section-header">
+        <h1 className="section-title">Messages</h1>
+        <p className="section-subtitle">Discutez avec vos contacts en temps reel.</p>
+      </div>
 
-        <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', height: '600px'}}>
-          {/* Liste des conversations */}
-          <div className="glass-panel" style={{padding: '1rem'}}>
-            <h3 style={{marginBottom: '1rem'}}>Conversations</h3>
-            <div style={{display: 'grid', gap: '0.5rem', maxHeight: '500px', overflowY: 'auto'}}>
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => {
-                    setSelectedConversation(conv);
-                    markAsRead(conv.id);
-                  }}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    background: selectedConversation?.id === conv.id ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.05)',
-                    cursor: 'pointer',
-                    border: conv.unread ? '2px solid var(--accent-color)' : '1px solid var(--border-color)'
-                  }}
-                >
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
-                    <h4 style={{margin: 0, fontSize: '1rem'}}>{conv.establishment}</h4>
-                    {conv.unread && (
-                      <span style={{
-                        background: 'var(--accent-color)',
-                        color: 'white',
-                        borderRadius: '50%',
-                        width: '8px',
-                        height: '8px',
-                        display: 'inline-block'
-                      }}></span>
-                    )}
-                  </div>
-                  <p style={{
-                    margin: '0.25rem 0',
-                    fontSize: '0.9rem',
-                    color: 'var(--text-muted)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {conv.lastMessage}
-                  </p>
-                  <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>
-                    {conv.timestamp}
-                  </span>
-                </div>
-              ))}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "1rem",
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div style={{ color: "var(--text-muted)" }}>
+          Derniere mise a jour : {lastUpdatedLabel}
+        </div>
+        <Button
+          text={isRefreshing ? "Actualisation..." : "Actualiser"}
+          className="btn-secondary"
+          onClick={() => refreshInbox(false)}
+          disabled={isRefreshing}
+        />
+      </div>
+
+      <div className="glass-panel" style={{ padding: 0, overflow: "hidden" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(260px, 320px) 1fr",
+            minHeight: "70vh",
+          }}
+        >
+          <div
+            style={{
+              borderRight: "1px solid var(--border-color)",
+              background: "rgba(15, 23, 42, 0.35)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div style={{ padding: "1.5rem", borderBottom: "1px solid var(--border-color)" }}>
+              <h3 style={{ margin: 0 }}>Boite de reception</h3>
+              <p style={{ margin: "0.35rem 0 0", color: "var(--text-muted)" }}>
+                {conversations.reduce(
+                  (count, conversation) => count + (conversation.unread_count || 0),
+                  0
+                )}{" "}
+                message(s) non lu(s)
+              </p>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+              {conversations.length === 0 ? (
+                <p style={{ color: "var(--text-muted)" }}>Aucune conversation pour le moment.</p>
+              ) : (
+                conversations.map((conversation) => {
+                  const title =
+                    currentUser?.user_type === "establishment"
+                      ? conversation.client_name || conversation.client_username || "Client"
+                      : conversation.establishment_name || "Etablissement";
+
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      onClick={() => setSelectedConversationId(conversation.id)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "1rem",
+                        borderRadius: "12px",
+                        border:
+                          selectedConversationId === conversation.id
+                            ? "1px solid var(--accent-color)"
+                            : "1px solid transparent",
+                        background:
+                          selectedConversationId === conversation.id
+                            ? "rgba(59, 130, 246, 0.12)"
+                            : "transparent",
+                        color: "inherit",
+                        cursor: "pointer",
+                        marginBottom: "0.75rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "0.75rem",
+                          marginBottom: "0.35rem",
+                        }}
+                      >
+                        <strong>{title}</strong>
+                        <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                          {conversation.last_message
+                            ? formatTimestamp(conversation.last_message.created_at)
+                            : ""}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          color:
+                            conversation.unread_count > 0
+                              ? "var(--text-color)"
+                              : "var(--text-muted)",
+                          fontSize: "0.92rem",
+                        }}
+                      >
+                        {conversation.last_message?.content?.slice(0, 90) || "Nouvelle conversation"}
+                        {conversation.last_message?.content?.length > 90 ? "..." : ""}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Zone de messages */}
-          <div className="glass-panel" style={{padding: '1rem', display: 'flex', flexDirection: 'column'}}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             {selectedConversation ? (
               <>
-                <h3 style={{marginBottom: '1rem'}}>{selectedConversation.establishment}</h3>
-
-                {/* Messages */}
-                <div style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  marginBottom: '1rem',
-                  padding: '1rem',
-                  background: 'rgba(0, 0, 0, 0.1)',
-                  borderRadius: '8px',
-                  maxHeight: '400px'
-                }}>
-                  {selectedConversation.messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      style={{
-                        marginBottom: '1rem',
-                        display: 'flex',
-                        justifyContent: msg.isFromEstablishment ? 'flex-start' : 'flex-end'
-                      }}
-                    >
-                      <div style={{
-                        maxWidth: '70%',
-                        padding: '0.75rem',
-                        borderRadius: '12px',
-                        background: msg.isFromEstablishment ? 'rgba(59, 130, 246, 0.2)' : 'var(--accent-color)',
-                        color: 'var(--text-color)',
-                        border: msg.isFromEstablishment ? '1px solid rgba(59, 130, 246, 0.3)' : 'none'
-                      }}>
-                        <p style={{margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold'}}>
-                          {msg.sender}
-                        </p>
-                        <p style={{margin: 0, lineHeight: '1.4'}}>
-                          {msg.message}
-                        </p>
-                        <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block'}}>
-                          {msg.timestamp}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div
+                  style={{
+                    padding: "1.5rem",
+                    borderBottom: "1px solid var(--border-color)",
+                    background: "rgba(15, 23, 42, 0.2)",
+                  }}
+                >
+                  <h3 style={{ margin: 0 }}>
+                    {currentUser?.user_type === "establishment"
+                      ? selectedConversation.client_name || selectedConversation.client_username
+                      : selectedConversation.establishment_name}
+                  </h3>
                 </div>
 
-                {/* Zone de saisie */}
-                <div style={{display: 'flex', gap: '1rem'}}>
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    padding: "1.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1rem",
+                  }}
+                >
+                  {messages.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)" }}>
+                      Aucun message pour le moment. Lancez la conversation.
+                    </p>
+                  ) : (
+                    messages.map((message) => {
+                      const isMe = message.is_from_me;
+                      return (
+                        <div
+                          key={message.id}
+                          style={{
+                            alignSelf: isMe ? "flex-end" : "flex-start",
+                            maxWidth: "75%",
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: "1rem",
+                              borderRadius: "16px",
+                              background: isMe
+                                ? "var(--accent-color)"
+                                : "rgba(255,255,255,0.06)",
+                              border: isMe ? "none" : "1px solid var(--border-color)",
+                              color: "white",
+                            }}
+                          >
+                            {message.content}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--text-muted)",
+                              marginTop: "0.35rem",
+                              textAlign: isMe ? "right" : "left",
+                            }}
+                          >
+                            {formatTimestamp(message.created_at)}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                <div
+                  style={{
+                    padding: "1.5rem",
+                    borderTop: "1px solid var(--border-color)",
+                    background: "rgba(15, 23, 42, 0.35)",
+                    display: "flex",
+                    gap: "1rem",
+                  }}
+                >
                   <input
                     type="text"
-                    placeholder="Tapez votre message..."
+                    className="form-input"
+                    placeholder="Ecrivez un message..."
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--panel-bg)',
-                      color: 'var(--text-color)',
-                      fontSize: '1rem'
+                    onChange={(event) => setNewMessage(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSendMessage();
+                      }
                     }}
+                    style={{ marginBottom: 0 }}
+                    disabled={sending}
                   />
                   <Button
-                    text="Envoyer"
+                    text={sending ? "..." : "Envoyer"}
+                    className="btn-primary"
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
+                    disabled={sending || !newMessage.trim()}
                   />
                 </div>
               </>
             ) : (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text-muted)'
-              }}>
-                <div style={{textAlign: 'center'}}>
-                  <div style={{fontSize: '3rem', marginBottom: '1rem'}}>💬</div>
-                  <p>Sélectionnez une conversation pour voir les messages</p>
-                </div>
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text-muted)",
+                }}
+              >
+                Selectionnez une conversation.
               </div>
             )}
           </div>

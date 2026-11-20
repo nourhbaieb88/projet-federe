@@ -15,8 +15,12 @@ export const AuthProvider = ({ children }) => {
     const storedToken = localStorage.getItem("access_token");
 
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        localStorage.removeItem("user");
+      }
     }
     setLoading(false);
   }, []);
@@ -26,21 +30,21 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const response = await authService.login(email, password);
-      
-      // Get the user profile after login
+
       try {
         const profileData = await authService.getProfile();
         localStorage.setItem("user", JSON.stringify(profileData));
         setUser(profileData);
+        setToken(localStorage.getItem("access_token"));
+        return { success: true, user: profileData };
       } catch (profileErr) {
         console.log("Could not fetch profile, using default");
         const basicUser = { email, ...response.user };
         localStorage.setItem("user", JSON.stringify(basicUser));
         setUser(basicUser);
+        setToken(localStorage.getItem("access_token"));
+        return { success: true, user: basicUser };
       }
-
-      setToken(localStorage.getItem("access_token"));
-      return { success: true, user: user || { email } };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };

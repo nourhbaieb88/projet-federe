@@ -1,0 +1,36 @@
+1
+00:00:00,000 --> 00:00:05,000
+Trouver une place dans un cafe ou un restaurant prend souvent du temps.
+
+2
+00:00:05,000 --> 00:00:10,000
+Avec CityReserve, tout se fait en quelques secondes.
+
+3
+00:00:10,000 --> 00:00:15,000
+Depuis la page d'accueil, l'utilisateur explore les etablissements.
+
+4
+00:00:15,000 --> 00:00:20,000
+Il compare les notes, les horaires et les services.
+
+5
+00:00:20,000 --> 00:00:25,000
+Il choisit un creneau, reserve, puis recoit une confirmation immediate.
+
+6
+00:00:25,000 --> 00:00:30,000
+Ensuite, il suit ses demandes dans l'historique.
+
+7
+00:00:30,000 --> 00:00:35,000
+Il peut aussi contacter l'etablissement en message.
+
+8
+00:00:35,000 --> 00:00:40,000
+Cote partenaire, le gerant accepte ou refuse et met a jour son profil.
+
+9
+00:00:40,000 --> 00:00:45,000
+CityReserve relie clients et etablissements. Reservez localement, simplement.
+

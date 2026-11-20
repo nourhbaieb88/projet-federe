@@ -1,0 +1,9 @@
+Trouver une place dans un cafe ou un restaurant prend souvent du temps.
+Avec CityReserve, tout se fait en quelques secondes.
+Depuis la page d'accueil, l'utilisateur explore les etablissements, compare les notes, les horaires et les services.
+Il choisit un creneau, reserve, puis recoit une confirmation immediate.
+Ensuite, il peut suivre ses demandes dans l'historique et contacter l'etablissement en message.
+Cote partenaire, le gerant voit les reservations en temps reel, accepte ou refuse, et met a jour son profil public.
+CityReserve relie clients et etablissements sur une seule plateforme.
+Reservez localement, simplement.
+

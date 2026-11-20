@@ -1,0 +1,32 @@
+1
+00:00:00,000 --> 00:00:05,000
+Un samedi en fin d'apres-midi, elle veut juste prendre un cafe.
+
+2
+00:00:05,000 --> 00:00:10,000
+Mais a son arrivee, tout est complet.
+
+3
+00:00:10,000 --> 00:00:15,000
+Elle perd du temps, elle cherche une place, rien ne se libere.
+
+4
+00:00:15,000 --> 00:00:21,000
+Alors, elle ouvre CityReserve sur son telephone.
+
+5
+00:00:21,000 --> 00:00:27,000
+En quelques secondes, elle trouve un cafe proche avec des places disponibles.
+
+6
+00:00:27,000 --> 00:00:33,000
+Elle choisit l'heure, confirme, et sa reservation est envoyee.
+
+7
+00:00:33,000 --> 00:00:38,000
+Quand elle arrive, sa table l'attend deja.
+
+8
+00:00:38,000 --> 00:00:40,000
+CityReserve. Reservez localement, simplement.
+
